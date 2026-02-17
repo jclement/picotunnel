@@ -1,0 +1,26 @@
+# Build Go client
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build client (static binary)
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o picotunnel-client ./cmd/client
+
+# Runtime (minimal scratch image)
+FROM scratch
+
+# Copy CA certificates for TLS connections
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy binary
+COPY --from=builder /app/picotunnel-client /picotunnel-client
+
+# Run as binary
+ENTRYPOINT ["/picotunnel-client"]
